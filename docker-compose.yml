@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:5.0
+    container_name: dropout-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build: ./backend
+    container_name: dropout-backend
+    ports:
+      - "3000:3000"
+    environment:
+      MONGO_URI: mongodb://admin:password@mongodb:27017/dropout-prediction
+      ML_SERVICE_URL: http://ml-service:5000
+      NODE_ENV: development
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  ml-service:
+    build: ./ml-service
+    container_name: dropout-ml
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_ENV: development
+    volumes:
+      - ./ml-service:/app
+      - /app/__pycache__
+
+  frontend:
+    build: ./frontend
+    container_name: dropout-frontend
+    ports:
+      - "3001:3001"
+    environment:
+      VITE_API_URL: http://localhost:3000/api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:
+
+networks:
+  default:
+    name: dropout-network

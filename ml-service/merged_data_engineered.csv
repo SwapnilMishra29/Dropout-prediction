@@ -1,0 +1,6 @@
+student_id,attendance,test1_marks,test2_marks,fees_status,average_marks,marks_trend,attendance_flag,fee_flag,low_marks_flag
+S001,82,45,55,paid,50.0,1,0,0,0
+S002,60,30,25,pending,27.5,-1,1,1,1
+S003,74,70,70,paid,70.0,0,1,0,0
+S004,91,88,92,paid,90.0,1,0,0,0
+S005,55,20,35,pending,27.5,1,1,1,1
