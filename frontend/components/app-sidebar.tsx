@@ -27,7 +27,9 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-64 flex-col bg-gradient-to-b from-sidebar via-sidebar to-[oklch(0.08_0.02_260)] border-r border-sidebar-border/50">
+    <aside className="sticky top-0 h-screen w-64 flex flex-col 
+                 bg-gradient-to-b from-sidebar via-sidebar to-[oklch(0.08_0.02_260)]
+                 border-r border-sidebar-border/50">
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 px-6">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary to-[oklch(0.6_0.15_280)] shadow-lg shadow-sidebar-primary/25">

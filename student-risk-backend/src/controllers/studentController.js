@@ -79,23 +79,21 @@ exports.updateStudent = async (req, res) => {
 };
 
 exports.deleteStudent = async (req, res) => {
-
   try {
-
-    const student = await Student.findByIdAndDelete(req.params.id);
+    const student = await Student.findOneAndDelete({
+      student_id: req.params.id
+    });
 
     if (!student) {
-
-      return res.status(404).json({ error: 'Student not found' });
-
+      return res.status(404).json({ error: "Student not found" });
     }
 
-    res.json({ message: 'Student deleted successfully' });
+    // 🔥 remove orphan predictions
+    await Prediction.deleteMany({ student_id: student._id });
+
+    res.json({ message: "Deleted successfully" });
 
   } catch (err) {
-
     res.status(500).json({ error: err.message });
-
   }
-
 };

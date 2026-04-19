@@ -1,16 +1,20 @@
 const Student = require('../models/Student');
-
 const Prediction = require('../models/Prediction');
 
-exports.getSummary = async (req, res) => {
+// 🔥 Summary
+const getSummary = async (req, res) => {
   try {
-    const totalStudents = await Student.countDocuments();
+    const students = await Student.find({}, { _id: 1 });
 
-    // Get latest prediction per student
+    const validIds = students.map(s => s._id);
+
     const latestPredictions = await Prediction.aggregate([
       {
-        $sort: { timestamp: -1 }
+        $match: {
+          student_id: { $in: validIds }
+        }
       },
+      { $sort: { timestamp: -1 } },
       {
         $group: {
           _id: "$student_id",
@@ -19,53 +23,58 @@ exports.getSummary = async (req, res) => {
       }
     ]);
 
-    const summary = {
-      total_students: totalStudents,
+    res.json({
+      total_students: students.length,
       high_risk_count: latestPredictions.filter(p => p.risk_level === "HIGH").length,
       medium_risk_count: latestPredictions.filter(p => p.risk_level === "MEDIUM").length,
       low_risk_count: latestPredictions.filter(p => p.risk_level === "LOW").length
-    };
-
-    res.json(summary);
-
-    console.log("Latest Predictions Count:", latestPredictions.length);
-    console.log("Total Students:", totalStudents);
+    });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-exports.getHighRiskStudents = async (req, res) => {
-
+// 🔥 High risk students
+const getHighRiskStudents = async (req, res) => {
   try {
+    const students = await Student.find({}, { _id: 1 });
+    const validIds = students.map(s => s._id);
 
-    const highRiskPredictions = await Prediction.find({ risk_level: 'HIGH' }).populate('student_id');
+    const data = await Prediction.find({
+      student_id: { $in: validIds },
+      risk_level: "HIGH"
+    }).populate('student_id');
 
-    const students = highRiskPredictions.map(p => p.student_id);
-
-    res.json(students);
+    res.json(data.map(p => p.student_id));
 
   } catch (err) {
-
     res.status(500).json({ error: err.message });
-
   }
-
 };
 
-exports.getStudentHistory = async (req, res) => {
-
+// 🔥 History
+const getStudentHistory = async (req, res) => {
   try {
+    const student = await Student.findOne({ student_id: req.params.id });
 
-    const history = await Prediction.find({ student_id: req.params.id }).sort({ timestamp: -1 });
+    if (!student) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    const history = await Prediction.find({
+      student_id: student._id
+    }).sort({ timestamp: -1 });
 
     res.json(history);
 
   } catch (err) {
-
     res.status(500).json({ error: err.message });
-
   }
+};
 
+module.exports = {
+  getSummary,
+  getHighRiskStudents,
+  getStudentHistory
 };

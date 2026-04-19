@@ -28,6 +28,7 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     df["attendance_flag"] = (df["attendance_percentage"] < 75).astype(int)
 
     # 4. Fee Flag
+    df["fees_paid"] = df["fees_paid"].astype(str).str.lower() == "true"
     df["fee_flag"] = (~df["fees_paid"]).astype(int)
 
     # 5. Low Marks Flag (use 40 as pass threshold)

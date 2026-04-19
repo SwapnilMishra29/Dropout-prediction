@@ -1,3 +1,5 @@
+"use client";
+
 import { AppSidebar } from "@/components/app-sidebar";
 
 export default function DashboardLayout({
@@ -6,9 +8,18 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex">
+
+      {/* Sidebar (fixed) */}
       <AppSidebar />
-      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+
+      {/* Main scrollable area */}
+      <main className="flex-1 h-screen overflow-y-auto bg-gray-50">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          {children}
+        </div>
+      </main>
+
     </div>
   );
 }

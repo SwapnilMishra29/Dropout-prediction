@@ -8,6 +8,7 @@ from src.utils.helpers import log_info, log_error
 import os
 from dotenv import load_dotenv
 import logging
+import pandas as pd
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -67,57 +68,63 @@ def predict():
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 
-@app.route('/batch-predict', methods=['POST'])
+@app.route('/batch_predict', methods=['POST'])
 def batch_predict_endpoint():
-    """
-    Predict for multiple students
-    """
     try:
-        data = request.json
-        if not data or 'students' not in data:
-            return jsonify({'error': 'Missing students array'}), 400
+        # 🔴 Validate files
+        if 'attendance' not in request.files or \
+           'marks' not in request.files or \
+           'fees' not in request.files:
+            return jsonify({"error": "Missing CSV files"}), 400
 
-        students = data.get('students', [])
-        if not isinstance(students, list) or len(students) == 0:
-            return jsonify({'error': 'students must be a non-empty array'}), 400
+        # ✅ Read CSV files
+        attendance_df = pd.read_csv(request.files['attendance'])
+        marks_df = pd.read_csv(request.files['marks'])
+        fees_df = pd.read_csv(request.files['fees'])
 
-        log_info(f"Batch predicting for {len(students)} students")
+        # 🔥 FIX 1: Convert string → numeric
+        attendance_df["attendance_percentage"] = pd.to_numeric(
+            attendance_df["attendance_percentage"], errors='coerce'
+        )
 
-        results = batch_predict(students)
-        if results is not None and not results.empty:
-            # Convert DataFrame to list of dicts
-            predictions = results.to_dict('records')
-            return jsonify({'predictions': predictions, 'count': len(predictions)})
-        else:
-            return jsonify({'error': 'Batch prediction failed'}), 400
+        marks_df["test1_marks"] = pd.to_numeric(
+            marks_df["test1_marks"], errors='coerce'
+        )
+        marks_df["test2_marks"] = pd.to_numeric(
+            marks_df["test2_marks"], errors='coerce'
+        )
+
+        # 🔥 FIX 2: Merge safely
+        merged = attendance_df.merge(marks_df, on='student_id', how='inner')
+        merged = merged.merge(fees_df, on='student_id', how='inner')
+
+
+        # 🔥 Feature Engineering
+        merged["average_marks"] = (merged["test1_marks"] + merged["test2_marks"]) / 2
+
+        merged["marks_trend"] = (merged["test2_marks"] - merged["test1_marks"]).fillna(0)
+        merged["marks_trend"] = merged["marks_trend"].apply(
+            lambda x: 1 if x > 0 else (-1 if x < 0 else 0)
+        )
+
+        merged["attendance_flag"] = (merged["attendance_percentage"] < 75).astype(int)
+
+        # 🔥 FIX 3: Boolean handling
+        merged["fees_paid"] = merged["fees_paid"].astype(str).str.lower() == "true"
+        merged["fee_flag"] = (~merged["fees_paid"]).astype(int)
+
+        merged["low_marks_flag"] = (merged["average_marks"] < 40).astype(int)
+        merged["performance_ratio"] = merged["average_marks"] / 40
+
+        # 🔥 Prediction
+        from models.predict import batch_predict
+        result = batch_predict(merged)
+
+        return jsonify(result.to_dict(orient="records"))
+
     except Exception as e:
-        log_error(f"Error in batch prediction: {e}")
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/health', methods=['GET'])
-def health():
-    """Health check endpoint"""
-    try:
-        # Test model loading with timeout
-        from src.models.predict import load_model
-        import time
-        start_time = time.time()
-        model = load_model()
-        load_time = time.time() - start_time
-        
-        return jsonify({
-            'status': 'healthy',
-            'ml_service': 'running',
-            'model': 'loaded',
-            'model_load_time': f'{load_time:.2f}s'
-        })
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return jsonify({
-            'status': 'unhealthy',
-            'error': str(e)
-        }), 503
+        print("❌ Flask Error:", str(e))
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == '__main__':

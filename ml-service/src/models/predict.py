@@ -163,6 +163,7 @@ def batch_predict(inputs, model_path=None):
         raise TypeError("inputs must be a list of dicts or pandas DataFrame")
 
     return predict_dropout(df, model_path=model_path)
+    print("🔥 FEATURES SENT TO MODEL:", X.columns.tolist())
 
 
 if __name__ == "__main__":
@@ -174,4 +175,6 @@ if __name__ == "__main__":
 
     print("Sample prediction output:")
     print(output.head().to_string(index=False))
+
+    
 

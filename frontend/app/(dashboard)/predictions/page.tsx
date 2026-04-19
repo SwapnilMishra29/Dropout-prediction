@@ -58,28 +58,39 @@ export default function PredictionsPage() {
     }
   };
 
-  const paginatedData = useMemo(() => {
+  // ✅ FILTER OUT BROKEN DATA (IMPORTANT FIX)
+  const safePredictions = useMemo(() => {
     if (!predictions) return [];
-    const start = (page - 1) * ITEMS_PER_PAGE;
-    return predictions.slice(start, start + ITEMS_PER_PAGE);
-  }, [predictions, page]);
+    return predictions.filter(
+      (p) => p && p.student_id && p.student_name
+    );
+  }, [predictions]);
 
-  const totalPages = predictions
-    ? Math.ceil(predictions.length / ITEMS_PER_PAGE)
-    : 1;
+  const paginatedData = useMemo(() => {
+    const start = (page - 1) * ITEMS_PER_PAGE;
+    return safePredictions.slice(start, start + ITEMS_PER_PAGE);
+  }, [safePredictions, page]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(safePredictions.length / ITEMS_PER_PAGE)
+  );
 
   return (
     <>
       <AppHeader title="Predictions" subtitle="AI Risk Analysis" />
 
       <div className="p-6 space-y-6">
-        {/* 🔥 TOP SECTION (2 COLUMN LAYOUT) */}
+
+        {/* TOP SECTION */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* LEFT → RUN PREDICTION */}
+
+          {/* RUN PREDICTION */}
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex gap-2 items-center">
-                <Sparkles className="w-4 h-4" /> Run Prediction
+                <Sparkles className="w-4 h-4" />
+                Run Prediction
               </CardTitle>
             </CardHeader>
 
@@ -111,26 +122,30 @@ export default function PredictionsPage() {
             </CardContent>
           </Card>
 
-          {/* RIGHT → RESULT DISPLAY 🔥 */}
+          {/* RESULT */}
           <Card className="shadow-lg flex items-center justify-center">
             <CardContent className="w-full">
+
               {!result ? (
                 <p className="text-center text-muted-foreground text-sm">
                   No prediction yet
                 </p>
               ) : (
                 (() => {
-                  const config = riskConfig[result.risk_level];
+                  const config =
+                    riskConfig[result.risk_level] ||
+                    riskConfig.LOW;
+
                   const Icon = config.icon;
                   const score = (result.final_score * 100).toFixed(0);
 
                   return (
                     <div className="space-y-4">
+
                       <h3 className="text-lg font-semibold text-center">
-                        {result.student_name}
+                        {result.student_name || "Unknown Student"}
                       </h3>
 
-                      {/* PROGRESS BAR */}
                       <div className="w-full bg-gray-200 rounded-full h-3">
                         <div
                           className={`h-3 rounded-full ${
@@ -148,7 +163,6 @@ export default function PredictionsPage() {
                         Risk Score: {score}%
                       </p>
 
-                      {/* RISK BADGE RIGHT STYLE */}
                       <div className="flex justify-center">
                         <Badge
                           className={`flex items-center gap-1 px-3 py-1 ${config.color}`}
@@ -165,61 +179,70 @@ export default function PredictionsPage() {
           </Card>
         </div>
 
-        {/* 🔥 PREDICTIONS LIST */}
+        {/* LIST */}
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>All Predictions</CardTitle>
           </CardHeader>
 
           <CardContent>
-            {/* SCROLL FIX */}
+
             <div className="h-[350px] overflow-y-auto pr-2 space-y-3">
-              {paginatedData.map((p) => {
-                const config = riskConfig[p.risk_level];
-                const Icon = config.icon;
-                const score = (p.final_score * 100).toFixed(0);
 
-                return (
-                  <div
-                    key={p.student_id}
-                    className="flex items-center justify-between p-4 rounded-xl border bg-white hover:shadow-md transition-all"
-                  >
-                    <div className="flex-1">
-                      <p className="font-semibold text-sm">
-                        {p.student_name}
-                      </p>
+              {paginatedData.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground">
+                  No valid predictions available
+                </p>
+              ) : (
+                paginatedData.map((p) => {
+                  const config =
+                    riskConfig[p.risk_level] ||
+                    riskConfig.LOW;
 
-                      <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full ${
-                            p.risk_level === "HIGH"
-                              ? "bg-red-500"
-                              : p.risk_level === "MEDIUM"
-                              ? "bg-yellow-500"
-                              : "bg-green-500"
-                          }`}
-                          style={{ width: `${score}%` }}
-                        />
+                  const Icon = config.icon;
+                  const score = (p.final_score * 100).toFixed(0);
+
+                  return (
+                    <div
+                      key={p.student_id}   // ✅ FIXED KEY
+                      className="flex items-center justify-between p-4 rounded-xl border bg-white hover:shadow-md transition-all"
+                    >
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm">
+                          {p.student_name || "Unknown"}
+                        </p>
+
+                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${
+                              p.risk_level === "HIGH"
+                                ? "bg-red-500"
+                                : p.risk_level === "MEDIUM"
+                                ? "bg-yellow-500"
+                                : "bg-green-500"
+                            }`}
+                            style={{ width: `${score}%` }}
+                          />
+                        </div>
+
+                        <p className="text-xs text-gray-500 mt-1">
+                          Risk Score: {score}%
+                        </p>
                       </div>
 
-                      <p className="text-xs text-gray-500 mt-1">
-                        Risk Score: {score}%
-                      </p>
-                    </div>
-
-                    <div className="ml-4">
-                      <Badge className={`flex items-center gap-1 ${config.color}`}>
-                        <Icon className="w-3 h-3" />
+                      <Badge className={`ml-4 ${config.color}`}>
+                        <Icon className="w-3 h-3 mr-1" />
                         {p.risk_level}
                       </Badge>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
-            {/* PAGINATION (NOW ALWAYS VISIBLE) */}
+            {/* PAGINATION */}
             <div className="flex justify-between items-center mt-4 border-t pt-3">
+
               <Button
                 variant="outline"
                 disabled={page === 1}
@@ -239,6 +262,7 @@ export default function PredictionsPage() {
               >
                 Next
               </Button>
+
             </div>
           </CardContent>
         </Card>

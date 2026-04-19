@@ -48,38 +48,44 @@ def predict():
 @app.route('/batch_predict', methods=['POST'])
 def batch_predict_endpoint():
     try:
-        data = request.get_json()
-        if not data or not isinstance(data, list):
-            return jsonify({"error": "Expected a list of student data"}), 400
+        from flask import request, jsonify
+        import pandas as pd
 
-        if not data:
-            return jsonify([])
+        if 'attendance' not in request.files or \
+           'marks' not in request.files or \
+           'fees' not in request.files:
+            return jsonify({"error": "Missing CSV files"}), 400
 
-        # Check each item
-        required = ["student_id", "attendance_percentage", "average_marks", "marks_trend", "attendance_flag", "fee_flag", "low_marks_flag", "performance_ratio"]
-        for i, item in enumerate(data):
-            if not isinstance(item, dict):
-                return jsonify({"error": f"Item {i} is not a dict"}), 400
-            missing = [f for f in required if f not in item]
-            if missing:
-                return jsonify({"error": f"Item {i} missing fields: {missing}"}), 400
+        # Read CSV files
+        attendance_df = pd.read_csv(request.files['attendance'])
+        marks_df = pd.read_csv(request.files['marks'])
+        fees_df = pd.read_csv(request.files['fees'])
 
-        result = batch_predict(data)
-        # result is DataFrame
-        predictions = []
-        for _, row in result.iterrows():
-            predictions.append({
-                "student_id": int(row["student_id"]),
-                "final_score": float(row["final_score"]),
-                "risk_level": row["risk_level"]
-            })
-        return jsonify(predictions)
-    except FileNotFoundError as e:
-        return jsonify({"error": str(e)}), 500
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+        # 🔥 IMPORTANT: Inline merge (TEMP FIX to avoid import issues)
+        merged = attendance_df.merge(marks_df, on='student_id', how='outer')
+        merged = merged.merge(fees_df, on='student_id', how='outer')
+
+        # 🔥 Feature Engineering
+        merged["average_marks"] = (merged["test1_marks"] + merged["test2_marks"]) / 2
+        merged["marks_trend"] = (merged["test2_marks"] - merged["test1_marks"]).apply(
+            lambda x: 1 if x > 0 else (-1 if x < 0 else 0)
+        )
+        merged["attendance_flag"] = (merged["attendance_percentage"] < 75).astype(int)
+
+        merged["fees_paid"] = merged["fees_paid"].astype(str).str.lower() == "true"
+        merged["fee_flag"] = (~merged["fees_paid"]).astype(int)
+
+        merged["low_marks_flag"] = (merged["average_marks"] < 40).astype(int)
+        merged["performance_ratio"] = merged["average_marks"] / 40
+
+        # 🔥 Prediction
+        from models.predict import batch_predict
+        result = batch_predict(merged)
+
+        return jsonify(result.to_dict(orient="records"))
+
     except Exception as e:
-        return jsonify({"error": f"Internal error: {str(e)}"}), 500
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

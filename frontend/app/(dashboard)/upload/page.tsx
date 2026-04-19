@@ -1,313 +1,214 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Upload, FileText, CheckCircle, XCircle, AlertCircle, CloudUpload } from "lucide-react";
-import { AppHeader } from "@/components/app-header";
+import { useRouter } from "next/navigation";
+import { uploadAPI } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { uploadAPI } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { UploadCloud, FileText, X } from "lucide-react";
 
-type UploadStatus = "idle" | "uploading" | "success" | "error";
-
-interface UploadResult {
-  status: UploadStatus;
-  message: string;
-  details?: {
-    records_processed?: number;
-    records_failed?: number;
-    filename?: string;
-  };
-}
+type FileType = "attendance" | "marks" | "fees";
 
 export default function UploadPage() {
-  const [isDragging, setIsDragging] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const router = useRouter();
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
+  const [files, setFiles] = useState<{
+    attendance: File | null;
+    marks: File | null;
+    fees: File | null;
+  }>({
+    attendance: null,
+    marks: null,
+    fees: null,
+  });
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
+  const [dragType, setDragType] = useState<FileType | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const file = e.dataTransfer.files[0];
-    if (file && file.type === "text/csv") {
-      setSelectedFile(file);
-      setUploadResult(null);
-    } else {
-      setUploadResult({
-        status: "error",
-        message: "Please upload a valid CSV file",
-      });
-    }
-  }, []);
-
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  // ✅ Handle file select
+  const handleFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: FileType
+  ) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.type === "text/csv" || file.name.endsWith(".csv")) {
-        setSelectedFile(file);
-        setUploadResult(null);
-      } else {
-        setUploadResult({
-          status: "error",
-          message: "Please upload a valid CSV file",
-        });
-      }
-    }
-  }, []);
+    if (!file) return;
 
-  const handleUpload = async () => {
-    if (!selectedFile) return;
-
-    setIsUploading(true);
-    setUploadResult({ status: "uploading", message: "Uploading file..." });
-
-    try {
-      const result = await uploadAPI.uploadCSV(selectedFile);
-      setUploadResult({
-        status: "success",
-        message: "File uploaded successfully!",
-        details: {
-          records_processed: result.records_processed ?? 150,
-          records_failed: result.records_failed ?? 0,
-          filename: selectedFile.name,
-        },
-      });
-      setSelectedFile(null);
-    } catch (error) {
-      setUploadResult({
-        status: "success",
-        message: "File uploaded successfully!",
-        details: {
-          records_processed: 150,
-          records_failed: 2,
-          filename: selectedFile.name,
-        },
-      });
-      setSelectedFile(null);
-    } finally {
-      setIsUploading(false);
-    }
+    setFiles((prev) => ({
+      ...prev,
+      [type]: file,
+    }));
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  // ✅ Drag handlers
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>, type: FileType) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+
+      setFiles((prev) => ({
+        ...prev,
+        [type]: file,
+      }));
+      setDragType(null);
+    },
+    []
+  );
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, type: FileType) => {
+    e.preventDefault();
+    setDragType(type);
+  };
+
+  const handleDragLeave = () => setDragType(null);
+
+  // ✅ Upload
+  const handleUpload = async () => {
+    if (!files.attendance || !files.marks || !files.fees) {
+      alert("Please upload all 3 CSV files");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const res = await uploadAPI.uploadCSV({
+        attendance: files.attendance,
+        marks: files.marks,
+        fees: files.fees,
+      });
+
+      // ✅ Save for analytics page
+      localStorage.setItem("csv_predictions", JSON.stringify(res.data));
+
+      // ✅ Redirect
+      router.push("/upload/analytics");
+
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <>
-      <AppHeader
-        title="Upload CSV"
-        subtitle="Import student data from CSV files"
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
+
+      <h1 className="text-2xl font-semibold text-foreground">
+        Upload Student CSV Data
+      </h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload Required Files</CardTitle>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+
+          <UploadBox
+            label="Attendance CSV"
+            file={files.attendance}
+            onChange={(e) => handleFileChange(e, "attendance")}
+            onDrop={(e) => handleDrop(e, "attendance")}
+            onDragOver={(e) => handleDragOver(e, "attendance")}
+            onDragLeave={handleDragLeave}
+            active={dragType === "attendance"}
+            remove={() => setFiles((p) => ({ ...p, attendance: null }))}
+          />
+
+          <UploadBox
+            label="Marks CSV"
+            file={files.marks}
+            onChange={(e) => handleFileChange(e, "marks")}
+            onDrop={(e) => handleDrop(e, "marks")}
+            onDragOver={(e) => handleDragOver(e, "marks")}
+            onDragLeave={handleDragLeave}
+            active={dragType === "marks"}
+            remove={() => setFiles((p) => ({ ...p, marks: null }))}
+          />
+
+          <UploadBox
+            label="Fees CSV"
+            file={files.fees}
+            onChange={(e) => handleFileChange(e, "fees")}
+            onDrop={(e) => handleDrop(e, "fees")}
+            onDragOver={(e) => handleDragOver(e, "fees")}
+            onDragLeave={handleDragLeave}
+            active={dragType === "fees"}
+            remove={() => setFiles((p) => ({ ...p, fees: null }))}
+          />
+
+          <Button
+            onClick={handleUpload}
+            disabled={loading}
+            className="w-full h-11 text-base"
+          >
+            {loading ? "Processing..." : "Upload & Analyze"}
+          </Button>
+
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ✅ Upload Box Component
+type UploadBoxProps = {
+  label: string;
+  file: File | null;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragLeave: () => void;
+  active: boolean;
+  remove: () => void;
+};
+
+function UploadBox({
+  label,
+  file,
+  onChange,
+  onDrop,
+  onDragOver,
+  onDragLeave,
+  active,
+  remove,
+}: UploadBoxProps) {
+  return (
+    <div
+      onDrop={onDrop}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      className={`border-2 border-dashed rounded-xl p-5 text-center transition ${
+        active ? "border-blue-500 bg-blue-50" : "border-gray-300"
+      }`}
+    >
+      <input
+        type="file"
+        accept=".csv"
+        onChange={onChange}
+        className="hidden"
+        id={label}
       />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-2xl">
-          {/* Upload Zone */}
-          <Card className="border-border/50 shadow-card hover:shadow-card-hover transition-all duration-300 animate-slide-up overflow-hidden">
-            <CardHeader className="pb-4 bg-gradient-to-br from-primary/5 to-transparent">
-              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                  <CloudUpload className="h-4 w-4 text-primary" />
-                </div>
-                Upload Student Data
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-2">
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={cn(
-                  "relative rounded-2xl border-2 border-dashed p-12 text-center transition-all duration-200",
-                  isDragging
-                    ? "border-primary bg-primary/5 scale-[1.01]"
-                    : "border-border/50 hover:border-primary/40 hover:bg-secondary/30"
-                )}
-              >
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileSelect}
-                  className="absolute inset-0 cursor-pointer opacity-0"
-                />
-                <div className="flex flex-col items-center gap-4">
-                  <div className={cn(
-                    "rounded-2xl p-5 transition-all duration-200",
-                    isDragging ? "bg-primary/20" : "bg-primary/10"
-                  )}>
-                    <Upload className={cn(
-                      "h-10 w-10 transition-all duration-200",
-                      isDragging ? "text-primary scale-110" : "text-primary"
-                    )} />
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold text-foreground">
-                      Drag and drop your CSV file here
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      or click to browse files
-                    </p>
-                  </div>
-                  <span className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">
-                    CSV format only (max 10MB)
-                  </span>
-                </div>
-              </div>
 
-              {/* Selected File */}
-              {selectedFile && (
-                <div className="mt-6 rounded-xl border border-border/50 bg-gradient-to-r from-secondary/30 to-transparent p-4 animate-scale-in">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-xl bg-primary/10 p-2.5">
-                        <FileText className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {selectedFile.name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatFileSize(selectedFile.size)}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedFile(null)}
-                      className="text-muted-foreground hover:text-destructive rounded-lg"
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Upload Button */}
-              <Button
-                onClick={handleUpload}
-                disabled={!selectedFile || isUploading}
-                className="mt-6 w-full h-11 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
-                size="lg"
-              >
-                {isUploading ? (
-                  <>
-                    <div className="h-4 w-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  "Upload File"
-                )}
-              </Button>
-
-              {/* Upload Result */}
-              {uploadResult && uploadResult.status !== "uploading" && (
-                <div
-                  className={cn(
-                    "mt-6 rounded-xl border p-4 animate-scale-in",
-                    uploadResult.status === "success"
-                      ? "border-green-200 bg-green-50"
-                      : "border-red-200 bg-red-50"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    {uploadResult.status === "success" ? (
-                      <CheckCircle className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                    )}
-                    <div>
-                      <p
-                        className={cn(
-                          "font-medium",
-                          uploadResult.status === "success"
-                            ? "text-green-700"
-                            : "text-red-700"
-                        )}
-                      >
-                        {uploadResult.message}
-                      </p>
-                      {uploadResult.details && (
-                        <div className="mt-2 text-sm text-muted-foreground space-y-0.5">
-                          <p>File: {uploadResult.details.filename}</p>
-                          <p>Records processed: <span className="font-medium text-foreground">{uploadResult.details.records_processed}</span></p>
-                          {uploadResult.details.records_failed !== undefined &&
-                            uploadResult.details.records_failed > 0 && (
-                              <p className="text-red-600">
-                                Records failed: {uploadResult.details.records_failed}
-                              </p>
-                            )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* CSV Format Guide */}
-          <Card className="mt-6 border-border/50 shadow-card hover:shadow-card-hover transition-all duration-300 animate-slide-up overflow-hidden" style={{ animationDelay: "100ms" }}>
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
-                </div>
-                CSV Format Guide
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <p className="text-sm text-muted-foreground mb-4">
-                Your CSV file should include the following columns:
-              </p>
-              <div className="rounded-xl bg-secondary/50 p-4 font-mono text-sm border border-border/30">
-                <p className="text-foreground">
-                  name, email, department, enrollment_date, gpa, attendance_rate
-                </p>
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30">
-                  <span className="font-medium text-foreground">name</span>
-                  <span className="text-muted-foreground">Full name</span>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30">
-                  <span className="font-medium text-foreground">email</span>
-                  <span className="text-muted-foreground">Valid email</span>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30">
-                  <span className="font-medium text-foreground">department</span>
-                  <span className="text-muted-foreground">Academic dept</span>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30">
-                  <span className="font-medium text-foreground">enrollment_date</span>
-                  <span className="text-muted-foreground">YYYY-MM-DD</span>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30">
-                  <span className="font-medium text-foreground">gpa</span>
-                  <span className="text-muted-foreground">0-4 scale</span>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30">
-                  <span className="font-medium text-foreground">attendance_rate</span>
-                  <span className="text-muted-foreground">0-100%</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {!file ? (
+        <label htmlFor={label} className="cursor-pointer flex flex-col items-center gap-2">
+          <UploadCloud className="w-8 h-8 text-gray-500" />
+          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="text-xs text-gray-400">Click or Drag CSV</p>
+        </label>
+      ) : (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-green-600" />
+            <span className="text-sm">{file.name}</span>
+          </div>
+          <button onClick={remove}>
+            <X className="w-4 h-4 text-red-500" />
+          </button>
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 }

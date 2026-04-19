@@ -51,10 +51,16 @@ const Prediction = require('../models/Prediction');
 exports.getAllPredictions = async (req, res) => {
   try {
     const predictions = await Prediction.find()
-      .populate('student_id') // 🔥 important
+      .populate('student_id')
       .sort({ createdAt: -1 });
 
-    res.json(predictions);
+    // ❌ REMOVE ORPHANED (deleted student) predictions
+    const cleaned = predictions.filter(
+      (p) => p.student_id !== null
+    );
+
+    res.json(cleaned);
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
