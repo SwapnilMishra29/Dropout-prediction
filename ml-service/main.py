@@ -128,5 +128,5 @@ def batch_predict_endpoint():
 
 
 if __name__ == '__main__':
-    port = int(os.getenv('ML_SERVICE_PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)  # Disable debug mode
+    port = int(os.getenv("PORT", 7860))
+    app.run(host="0.0.0.0", port=port)  # Disable debug mode
