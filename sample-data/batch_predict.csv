@@ -1,0 +1,11 @@
+student_id,attendance_percentage,test1_marks,test2_marks,fees_paid
+STU001,85,75,80,true
+STU002,92,88,85,true
+STU003,65,45,50,false
+STU004,95,90,92,true
+STU005,45,35,30,false
+STU006,88,82,85,true
+STU007,72,65,68,true
+STU008,75,72,74,false
+STU009,70,68,72,false
+STU010,82,78,80,true

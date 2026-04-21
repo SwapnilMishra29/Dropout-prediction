@@ -1,31 +1,70 @@
 const axios = require('axios');
 
-const predictRisk = async (studentData, retries = 3) => {
-  const url = `${process.env.ML_API_URL}/predict`;
+class MLService {
+  constructor() {
+    this.baseURL = process.env.ML_API_URL || 'http://localhost:7860';
+    this.timeout = 10000;
+  }
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
+  async predict(features) {
     try {
-      console.log(`ML API call attempt ${attempt}:`, url);
-      const response = await axios.post(url, studentData, {
-        timeout: 15000, // 15 second timeout
-        headers: {
-          'Content-Type': 'application/json'
-        }
+      const response = await axios.post(`${this.baseURL}/predict`, features, {
+        timeout: this.timeout,
+        headers: { 'Content-Type': 'application/json' }
       });
-      return response.data;
-    } catch (err) {
-      console.error(`ML API Error (attempt ${attempt}):`, err.message);
-
-      if (attempt === retries) {
-        throw new Error(`ML API call failed after ${retries} attempts: ${err.message}`);
-      }
-
-      // Wait before retry (exponential backoff)
-      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-      console.log(`Retrying in ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('ML Service Error:', error.message);
+      
+      // Fallback prediction when ML service is unavailable
+      return {
+        success: false,
+        data: this.getFallbackPrediction(features),
+        error: error.message
+      };
     }
   }
-};
 
-module.exports = { predictRisk };
+  getFallbackPrediction(features) {
+    // Simple rule-based fallback
+    let riskScore = 0;
+    
+    // Attendance factor
+    if (features.attendance_percentage < 75) riskScore += 0.3;
+    else if (features.attendance_percentage < 85) riskScore += 0.1;
+    
+    // Marks factor
+    const avgMarks = features.average_marks;
+    if (avgMarks < 40) riskScore += 0.4;
+    else if (avgMarks < 50) riskScore += 0.3;
+    else if (avgMarks < 60) riskScore += 0.2;
+    
+    // Fee factor
+    if (!features.fees_paid) riskScore += 0.2;
+    
+    // Trend factor
+    if (features.marks_trend === -1) riskScore += 0.1;
+    
+    // Multiple factors bonus
+    let factorCount = 0;
+    if (features.attendance_percentage < 75) factorCount++;
+    if (avgMarks < 50) factorCount++;
+    if (!features.fees_paid) factorCount++;
+    if (factorCount >= 2) riskScore += 0.1;
+    
+    const final_score = Math.min(riskScore, 1);
+    
+    let risk_level;
+    if (final_score < 0.4) risk_level = 'LOW';
+    else if (final_score < 0.7) risk_level = 'MEDIUM';
+    else risk_level = 'HIGH';
+    
+    return { final_score, risk_level };
+  }
+}
+
+module.exports = new MLService();

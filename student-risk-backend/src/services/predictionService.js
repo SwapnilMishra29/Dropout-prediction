@@ -1,115 +1,205 @@
-const axios = require('axios');
-
 const Student = require('../models/Student');
 const AcademicRecord = require('../models/AcademicRecord');
 const FinanceRecord = require('../models/FinanceRecord');
 const Prediction = require('../models/Prediction');
-const Alert = require('../models/Alert');
+const mlService = require('./mlService');
 
-async function predictRisk(studentId) {
-  try {
-    // 1. Get student
-    let student;
-    if (typeof studentId === 'string') {
-      student = await Student.findOne({ student_id: studentId });
-    } else {
-      student = await Student.findById(studentId);
+class PredictionService {
+  
+  getAverageMarks(academicRecord) {
+    if (!academicRecord) return 0;
+    if (academicRecord.test1_marks && academicRecord.test2_marks) {
+      return (academicRecord.test1_marks + academicRecord.test2_marks) / 2;
     }
-
-    if (!student) throw new Error('Student not found');
-
-    // 2. Get latest academic record
-    const latestAcademic = await AcademicRecord
-      .findOne({ student_id: student._id })
-      .sort({ createdAt: -1 });
-
-    if (!latestAcademic) throw new Error('No academic records found');
-
-    // 3. Compute features
-    const average_marks =
-      latestAcademic.marks.reduce((a, b) => a + b, 0) /
-      latestAcademic.marks.length;
-
-    const marks_trend = 0; // can improve later
-    const attendance_flag = latestAcademic.attendance_percentage < 75 ? 1 : 0;
-    const low_marks_flag = average_marks < 50 ? 1 : 0;
-
-    // 4. Get latest finance record
-    const latestFinance = await FinanceRecord
-      .findOne({ student_id: student._id })
-      .sort({ createdAt: -1 });
-
-    if (!latestFinance) throw new Error('No finance records found');
-
-    const fee_flag = !latestFinance.fee_paid ? 1 : 0;
-
-    const performance_ratio = average_marks / 100;
-
-    // 5. Prepare ML payload
-    const data = {
+    if (academicRecord.marks && academicRecord.marks.length) {
+      return academicRecord.marks.reduce((a, b) => a + b, 0) / academicRecord.marks.length;
+    }
+    return 0;
+  }
+  
+  async calculateMarksTrend(studentId) {
+    const records = await AcademicRecord.find({ student_id: studentId })
+      .sort({ semester: 1 })
+      .limit(2);
+    
+    if (records.length < 2) return 0;
+    
+    const currentAvg = this.getAverageMarks(records[1]);
+    const previousAvg = this.getAverageMarks(records[0]);
+    const diff = currentAvg - previousAvg;
+    
+    if (diff > 5) return 1;
+    if (diff < -5) return -1;
+    return 0;
+  }
+  
+  async prepareFeatures(studentId) {
+    // Find student
+    let student;
+    if (typeof studentId === 'string' && studentId.match(/^[0-9a-fA-F]{24}$/)) {
+      student = await Student.findById(studentId);
+    } else {
+      student = await Student.findOne({ student_id: studentId });
+    }
+    
+    if (!student) {
+      throw new Error('Student not found');
+    }
+    
+    // Get latest academic record
+    const academicRecord = await AcademicRecord.findOne({ student_id: student._id })
+      .sort({ semester: -1 });
+    
+    // Default values if no academic record exists
+    let attendance_percentage = 75;
+    let test1_marks = 50;
+    let test2_marks = 50;
+    let average_marks = 50;
+    
+    if (academicRecord) {
+      attendance_percentage = academicRecord.attendance_percentage || 75;
+      test1_marks = academicRecord.test1_marks || 50;
+      test2_marks = academicRecord.test2_marks || 50;
+      average_marks = this.getAverageMarks(academicRecord);
+    }
+    
+    // Get latest finance record
+    const financeRecord = await FinanceRecord.findOne({ student_id: student._id })
+      .sort({ semester: -1 });
+    
+    const marksTrend = await this.calculateMarksTrend(student._id);
+    const attendanceFlag = attendance_percentage < 75 ? 1 : 0;
+    const lowMarksFlag = average_marks < 50 ? 1 : 0;
+    const feeFlag = (financeRecord && !financeRecord.fees_paid) ? 1 : 0;
+    
+    // Ensure performance_ratio is a valid number (not NaN)
+    let performance_ratio = average_marks / 50;
+    if (isNaN(performance_ratio) || !isFinite(performance_ratio)) {
+      performance_ratio = 1.0; // Default value
+    }
+    
+    const features = {
       student_id: student.student_id,
-      attendance_percentage: latestAcademic.attendance_percentage,
-      average_marks,
-      marks_trend,
-      attendance_flag,
-      fee_flag,
-      low_marks_flag,
-      performance_ratio
+      attendance_percentage: attendance_percentage,
+      test1_marks: test1_marks,
+      test2_marks: test2_marks,
+      fees_paid: financeRecord ? financeRecord.fees_paid : true,
+      average_marks: average_marks,
+      marks_trend: marksTrend,
+      attendance_flag: attendanceFlag,
+      fee_flag: feeFlag,
+      low_marks_flag: lowMarksFlag,
+      performance_ratio: performance_ratio
     };
-
-    // 6. Call ML API
-    const url = `${process.env.ML_API_URL}/predict`;
-
-    const response = await axios.post(url, data, {
-      timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json'
+    
+    return { student, features, academicRecord, financeRecord };
+  }
+  
+  async getPrediction(studentId) {
+    try {
+      const { student, features, academicRecord, financeRecord } = await this.prepareFeatures(studentId);
+      
+      console.log('📊 Features for prediction:', JSON.stringify(features, null, 2));
+      
+      // Call ML service
+      const mlResult = await mlService.predict(features);
+      
+      let final_score, risk_level;
+      
+      if (mlResult.success) {
+        final_score = mlResult.data.final_score;
+        risk_level = mlResult.data.risk_level;
+      } else {
+        // Fallback prediction
+        final_score = 0.5;
+        risk_level = 'MEDIUM';
       }
-    });
-
-    const { final_score, risk_level } = response.data;
-
-    // 7. Get existing prediction (IMPORTANT for alert logic)
-    const existingPrediction = await Prediction.findOne({
-      student_id: student._id
-    });
-
-    // 8. UPSERT (Fix duplicate problem 🔥)
-    const prediction = await Prediction.findOneAndUpdate(
-      { student_id: student._id },
+      
+      // Ensure final_score is a valid number
+      if (isNaN(final_score) || !isFinite(final_score)) {
+        final_score = 0.5;
+        risk_level = 'MEDIUM';
+      }
+      
+      // Save prediction
+      const prediction = await Prediction.findOneAndUpdate(
+        { student_id: student._id },
+        {
+          final_score,
+          risk_level,
+          features_used: {
+            attendance_percentage: features.attendance_percentage,
+            average_marks: features.average_marks,
+            marks_trend: features.marks_trend,
+            attendance_flag: features.attendance_flag,
+            fee_flag: features.fee_flag,
+            low_marks_flag: features.low_marks_flag,
+            performance_ratio: features.performance_ratio
+          },
+          timestamp: new Date()
+        },
+        { upsert: true, new: true }
+      );
+      
+      await prediction.populate('student_id', 'student_id name email program');
+      
+      return prediction;
+      
+    } catch (error) {
+      console.error('Prediction Error:', error);
+      throw error;
+    }
+  }
+  
+  async getPredictionHistory(studentId, limit = 10) {
+    let student;
+    if (typeof studentId === 'string' && studentId.match(/^[0-9a-fA-F]{24}$/)) {
+      student = await Student.findById(studentId);
+    } else {
+      student = await Student.findOne({ student_id: studentId });
+    }
+    
+    if (!student) {
+      throw new Error('Student not found');
+    }
+    
+    const predictions = await Prediction.find({ student_id: student._id })
+      .sort({ timestamp: -1 })
+      .limit(limit);
+    
+    return predictions;
+  }
+  
+  async getRiskStatistics() {
+    const stats = await Prediction.aggregate([
       {
-        final_score,
-        risk_level,
-        timestamp: new Date()
+        $sort: { student_id: 1, timestamp: -1 }
       },
       {
-        upsert: true,
-        new: true
+        $group: {
+          _id: '$student_id',
+          latest_risk: { $first: '$risk_level' },
+          latest_score: { $first: '$final_score' }
+        }
+      },
+      {
+        $group: {
+          _id: '$latest_risk',
+          count: { $sum: 1 },
+          avg_score: { $avg: '$latest_score' }
+        }
       }
-    );
-
-    // 9. Populate student for response
-    await prediction.populate('student_id');
-
-    // 10. Alert logic (ONLY when risk becomes HIGH)
-    if (
-      risk_level === 'HIGH' &&
-      (!existingPrediction || existingPrediction.risk_level !== 'HIGH')
-    ) {
-      await Alert.create({
-        student_id: student._id,
-        alert_type: 'High Risk Detected',
-        message: 'Student has been identified with high dropout risk.',
-        created_at: new Date()
-      });
-    }
-
-    return prediction;
-
-  } catch (error) {
-    console.error("Prediction Error:", error.message);
-    throw error;
+    ]);
+    
+    const total = stats.reduce((sum, s) => sum + s.count, 0);
+    
+    return {
+      total_predictions: total,
+      high_risk: stats.find(s => s._id === 'HIGH')?.count || 0,
+      medium_risk: stats.find(s => s._id === 'MEDIUM')?.count || 0,
+      low_risk: stats.find(s => s._id === 'LOW')?.count || 0
+    };
   }
 }
 
-module.exports = { predictRisk };
+module.exports = new PredictionService();

@@ -1,0 +1,11 @@
+student_id,name,email,phone,program,enrollment_year,current_semester
+STU001,John Doe,john.doe@example.com,9876543210,Computer Science,2024,1
+STU002,Jane Smith,jane.smith@example.com,9876543211,Engineering,2024,1
+STU003,Mike Johnson,mike.johnson@example.com,9876543212,Business,2024,2
+STU004,Sarah Williams,sarah.williams@example.com,9876543213,Medicine,2023,4
+STU005,David Brown,david.brown@example.com,9876543214,Computer Science,2024,1
+STU006,Emma Davis,emma.davis@example.com,9876543215,Engineering,2023,3
+STU007,Chris Wilson,chris.wilson@example.com,9876543216,Business,2024,1
+STU008,Lisa Martinez,lisa.martinez@example.com,9876543217,Computer Science,2022,6
+STU009,Tom Anderson,tom.anderson@example.com,9876543218,Medicine,2024,1
+STU010,Amy Taylor,amy.taylor@example.com,9876543219,Engineering,2023,2

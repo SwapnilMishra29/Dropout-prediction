@@ -1,35 +1,244 @@
-# v0-student-dropout-prediction
+# Dropout Early Warning System (EWS)
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+A comprehensive web application for identifying and supporting at-risk students before they drop out of school. Built with Next.js 16, React, Tailwind CSS, and Recharts.
 
-## Built with v0
+## Features
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+### Dashboard
+- Real-time student statistics and metrics
+- Risk distribution visualization with pie charts
+- Trend analysis with line charts
+- Recent alerts and notifications
+- Quick access to key performance indicators
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_UGjvkfRzeSYR7GBg06wBT1oY7ODi)
+### Student Management
+- Complete student roster with filtering and sorting
+- Advanced search capabilities
+- Risk level filtering (Low, Medium, High, Critical)
+- Pagination support for large datasets
+- Individual student profiles with detailed information
 
-## Getting Started
+### Student Details (Multi-tab Interface)
+1. **Overview** - Basic student information and current risk assessment
+2. **Risk Factors** - Detailed breakdown of factors contributing to dropout risk
+3. **Attendance** - Attendance history and trends
+4. **Academic Performance** - GPA, grades, and academic progress
+5. **Engagement** - Parent involvement, counselor notes, and interventions
 
-First, run the development server:
+### Analytics & Insights
+- Risk distribution analysis
+- Enrollment and at-risk trends over time
+- Top risk factors identification
+- Performance metrics by grade level
+- Statistical insights for data-driven decision making
 
+### Alerts & Notifications
+- New alerts dashboard with filtering
+- Status tracking (New, Active, Resolved)
+- Alert summaries and statistics
+- Drill-down capability to student details
+- Priority-based alert management
+
+### Bulk Data Upload
+- CSV file import for student data
+- Template download for proper formatting
+- Validation and error reporting
+- Success metrics and detailed error logs
+- Support for required and optional fields
+
+### Settings
+- Organization configuration (school name, admin email)
+- Alert threshold customization
+- Alert frequency preferences
+- Email notification controls
+- Display preferences (dark mode support)
+
+## Technical Stack
+
+- **Framework:** Next.js 16 with App Router
+- **UI Library:** React 19
+- **Styling:** Tailwind CSS v4
+- **Components:** shadcn/ui
+- **Data Visualization:** Recharts
+- **HTTP Client:** Axios
+- **Icons:** Lucide React
+
+## Project Structure
+
+```
+├── app/
+│   ├── layout.tsx          # Root layout with providers
+│   ├── page.tsx            # Dashboard page
+│   ├── globals.css         # Global styles and theme
+│   ├── students/
+│   │   ├── page.tsx        # Students list page
+│   │   └── [id]/
+│   │       └── page.tsx    # Student detail page with tabs
+│   ├── analytics/
+│   │   └── page.tsx        # Analytics & insights page
+│   ├── alerts/
+│   │   └── page.tsx        # Alerts & notifications page
+│   ├── settings/
+│   │   └── page.tsx        # Settings page
+│   └── bulk-upload/
+│       └── page.tsx        # Bulk upload page
+├── components/
+│   ├── Sidebar.tsx         # Navigation sidebar (responsive)
+│   ├── Header.tsx          # Page header
+│   ├── RiskBadge.tsx       # Risk level badge component
+│   ├── StatCard.tsx        # Statistics card component
+│   ├── DataTable.tsx       # Sortable data table
+│   ├── Modal.tsx           # Modal dialog component
+│   ├── Toast.tsx           # Toast notification component
+│   └── ui/                 # shadcn/ui components
+├── lib/
+│   ├── api-client.ts       # Axios HTTP client
+│   ├── api-types.ts        # TypeScript type definitions
+│   ├── notification-context.tsx # Notification provider
+│   └── utils.ts            # Utility functions
+├── public/                 # Static assets
+└── scripts/                # Utility scripts
+```
+
+## Responsive Design
+
+The application is fully responsive across all device sizes:
+
+- **Mobile (< 768px):** Collapsible sidebar, optimized layout, touch-friendly buttons
+- **Tablet (768px - 1024px):** Hybrid navigation, adjusted grid layouts
+- **Desktop (> 1024px):** Full sidebar, multi-column grids, rich data visualizations
+
+## Key Components
+
+### RiskBadge
+Displays student risk level with color-coded visual indicators:
+- Low (Green)
+- Medium (Yellow)
+- High (Orange)
+- Critical (Red)
+
+### StatCard
+Shows key statistics with optional trend indicators and icons:
+- Customizable title, value, and description
+- Trend indicators (up/down)
+- Icon support for visual enhancement
+
+### DataTable
+Sortable table component with:
+- Column-based sorting
+- Custom cell rendering
+- Responsive overflow handling
+- Click handlers for row selection
+
+### Sidebar
+Mobile-responsive navigation with:
+- Collapsible drawer on mobile
+- Active route highlighting
+- Smooth transitions
+- Quick logout access
+
+### Header
+Sticky page header with:
+- Dynamic page titles
+- Search functionality
+- Notification bell with indicator
+- Settings access
+- Fully responsive design
+
+## API Integration
+
+The application expects a REST API with the following endpoints:
+
+```
+GET  /api/dashboard/analytics      - Dashboard metrics
+GET  /api/students                 - Student list with pagination
+GET  /api/students/:id             - Student details
+GET  /api/students/:id/risk-factors - Risk factor analysis
+GET  /api/students/:id/attendance  - Attendance records
+GET  /api/students/:id/academic    - Academic performance
+GET  /api/students/:id/engagement  - Engagement metrics
+GET  /api/analytics                - Analytics data
+GET  /api/alerts                   - Alerts list
+POST /api/upload/students          - Bulk student upload
+GET  /api/settings                 - Settings
+POST /api/settings                 - Update settings
+```
+
+## Environment Variables
+
+Create a `.env.local` file with:
+
+```
+VITE_API_URL=http://localhost:3000/api
+```
+
+## Installation & Setup
+
+1. Install dependencies:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+```
+
+2. Set up environment variables:
+```bash
+cp .env.example .env.local
+```
+
+3. Start the development server:
+```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Color Scheme
 
-## Learn More
+The application uses a professional dark/light theme with:
+- Primary color: Indigo (Risk and actionable items)
+- Accent colors: Blue, Green, Amber, Red (Status indicators)
+- Neutral colors: Gray scale for backgrounds and text
+- High contrast for accessibility
 
-To learn more, take a look at the following resources:
+## Browser Support
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
 
-<a href="https://v0.app/chat/api/kiro/clone/SwapnilMishra29/v0-student-dropout-prediction" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>
+## Performance Optimizations
+
+- Image optimization with Next.js Image component
+- Code splitting and lazy loading
+- CSS-in-JS for optimized stylesheets
+- Caching strategies for API responses
+- Mobile-first responsive design
+
+## Accessibility
+
+- Semantic HTML structure
+- ARIA labels and roles where needed
+- Keyboard navigation support
+- High contrast color combinations
+- Focus indicators for interactive elements
+- Screen reader friendly components
+
+## Future Enhancements
+
+- Real-time notification system with WebSockets
+- Advanced filtering and faceted search
+- Export to PDF/Excel functionality
+- Integration with school information systems (SIS)
+- Machine learning-based risk prediction
+- Automated intervention recommendations
+- Parent/student portal access
+- Multi-language support
+- API rate limiting and security enhancements
+
+## License
+
+This project is part of the v0 platform by Vercel.
+
+## Support
+
+For issues or questions, please contact support or open an issue in the project repository.

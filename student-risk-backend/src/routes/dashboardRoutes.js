@@ -1,13 +1,17 @@
 const express = require('express');
-
 const router = express.Router();
-
 const dashboardController = require('../controllers/dashboardController');
 
-router.get('/summary', dashboardController.getSummary);
+// GET /api/dashboard/stats - Main dashboard statistics
+router.get('/stats', dashboardController.getDashboardStats);
 
-router.get('/high-risk', dashboardController.getHighRiskStudents);
+// GET /api/dashboard/high-risk-students - High risk students list
+router.get('/high-risk-students', dashboardController.getHighRiskStudents);
 
-router.get('/student/:id/history', dashboardController.getStudentHistory);
+// GET /api/dashboard/risk-trend - Risk trend over time
+router.get('/risk-trend', dashboardController.getRiskTrend);
+
+// GET /api/dashboard/department-stats - Department-wise risk distribution
+router.get('/department-stats', dashboardController.getDepartmentRiskStats);
 
 module.exports = router;
