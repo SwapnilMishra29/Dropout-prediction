@@ -1,89 +1,81 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RiskBadge from '@/components/RiskBadge';
 import { studentAPI, predictionAPI } from '@/lib/api-client';
 import { useNotification } from '@/lib/notification-context';
-import { Search, Filter, Plus, Eye, Edit2, Trash2, Loader2 } from 'lucide-react';
-
-interface Student {
-  _id: string;
-  student_id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  program: string;
-  current_semester: number;
-  enrollment_year: number;
-  status: string;
-  risk_level?: string;
-  risk_score?: number;
-}
+import { Search, Plus, Eye, Trash2, Loader2, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
 
 export default function StudentsPage() {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const router = useRouter();
+  const [students, setStudents] = useState<any[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
-  const { showError, showSuccess } = useNotification();
+  const { showSuccess, showError } = useNotification();
 
-  useEffect(() => {
-    fetchStudents();
-  }, []);
-
-  useEffect(() => {
-    filterStudents();
-  }, [search, students]);
-
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('Fetching students from API...');
+      
       const response = await studentAPI.getAll();
-      const studentsData = response.data || [];
+      console.log('API Response:', response);
+      
+      // Handle different response structures
+      const studentsData = response.data?.data || response.data || [];
+      console.log('Students data:', studentsData);
       
       // Fetch predictions for each student
       const studentsWithRisk = await Promise.all(
-        studentsData.map(async (student: Student) => {
+        studentsData.map(async (student: any) => {
           try {
             const predRes = await predictionAPI.getByStudent(student._id);
-            const prediction = predRes?.data;
+            const prediction = predRes?.data?.data || predRes?.data;
             return {
               ...student,
               risk_level: prediction?.risk_level,
               risk_score: prediction?.final_score,
             };
-          } catch {
+          } catch (e) {
             return { ...student, risk_level: undefined, risk_score: undefined };
           }
         })
       );
       
       setStudents(studentsWithRisk);
-    } catch (error) {
+      setFilteredStudents(studentsWithRisk);
+      
+    } catch (error: any) {
       console.error('Error fetching students:', error);
-      showError('Failed to load students');
+      showError(error.response?.data?.error || 'Failed to load students');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [showError]);
 
-  const filterStudents = () => {
-    let filtered = [...students];
-    
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filtered = filtered.filter(
-        (student) =>
-          student.name?.toLowerCase().includes(searchLower) ||
-          student.student_id?.toLowerCase().includes(searchLower) ||
-          student.email?.toLowerCase().includes(searchLower)
-      );
-    }
-    
-    setFilteredStudents(filtered);
+  useEffect(() => {
+    fetchStudents();
+  }, [fetchStudents]);
+
+  // Refresh when page gets focus
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchStudents();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [fetchStudents]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchStudents();
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -91,12 +83,26 @@ export default function StudentsPage() {
       try {
         await studentAPI.delete(id);
         showSuccess('Student deleted successfully');
-        fetchStudents();
+        fetchStudents(); // Refresh the list
       } catch (error) {
         showError('Failed to delete student');
       }
     }
   };
+
+  // Filter students based on search
+  useEffect(() => {
+    if (search) {
+      const filtered = students.filter(student =>
+        student.name?.toLowerCase().includes(search.toLowerCase()) ||
+        student.student_id?.toLowerCase().includes(search.toLowerCase()) ||
+        student.email?.toLowerCase().includes(search.toLowerCase())
+      );
+      setFilteredStudents(filtered);
+    } else {
+      setFilteredStudents(students);
+    }
+  }, [search, students]);
 
   const getRiskBadgeLevel = (level?: string) => {
     if (level === 'HIGH') return 'High';
@@ -105,7 +111,7 @@ export default function StudentsPage() {
     return 'Medium';
   };
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
         <Sidebar />
@@ -124,19 +130,31 @@ export default function StudentsPage() {
         <Header title="Students" />
 
         <div className="p-4 md:p-6 lg:p-8">
-          {/* Header with Add Button */}
+          {/* Header with Add Button and Refresh */}
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Students</h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">Manage all students</p>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                {filteredStudents.length} students found
+              </p>
             </div>
-            <Link
-              href="/students/new"
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Add Student
-            </Link>
+            <div className="flex gap-3">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              <Link
+                href="/students/new"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Student
+              </Link>
+            </div>
           </div>
 
           {/* Search Bar */}
@@ -155,27 +173,28 @@ export default function StudentsPage() {
 
           {/* Students Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-900">
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Student</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 hidden md:table-cell">ID</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 hidden lg:table-cell">Program</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Semester</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Risk Level</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredStudents.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                        No students found
-                      </td>
+            {filteredStudents.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-2">No students found</div>
+                <Link href="/students/new" className="text-blue-500 hover:text-blue-600">
+                  Add your first student →
+                </Link>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-900">
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Student</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 hidden md:table-cell">ID</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 hidden lg:table-cell">Program</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Semester</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Risk Level</th>
+                      <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">Actions</th>
                     </tr>
-                  ) : (
-                    filteredStudents.map((student) => (
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {filteredStudents.map((student) => (
                       <tr key={student._id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         <td className="px-6 py-4">
                           <div>
@@ -212,11 +231,11 @@ export default function StudentsPage() {
                           </div>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </main>

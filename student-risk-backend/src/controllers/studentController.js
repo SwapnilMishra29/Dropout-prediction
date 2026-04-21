@@ -2,7 +2,8 @@ const Student = require('../models/Student');
 
 exports.getAllStudents = async (req, res) => {
   try {
-    const students = await Student.find().limit(20);
+    // ✅ FIXED: Removed .limit(20) to return all students
+    const students = await Student.find().sort({ created_at: -1 });
     res.json({
       success: true,
       data: students
@@ -17,12 +18,10 @@ exports.getStudent = async (req, res) => {
     const { id } = req.params;
     let student;
     
-    // Try to find by _id first
     if (id.match(/^[0-9a-fA-F]{24}$/)) {
       student = await Student.findById(id);
     }
     
-    // If not found, try by student_id
     if (!student) {
       student = await Student.findOne({ student_id: id.toUpperCase() });
     }
@@ -42,7 +41,6 @@ exports.getStudent = async (req, res) => {
 
 exports.createStudent = async (req, res) => {
   try {
-    // Check for duplicate student_id
     const existingStudent = await Student.findOne({ student_id: req.body.student_id });
     if (existingStudent) {
       return res.status(400).json({ 
@@ -51,7 +49,6 @@ exports.createStudent = async (req, res) => {
       });
     }
     
-    // Check for duplicate email
     const existingEmail = await Student.findOne({ email: req.body.email });
     if (existingEmail) {
       return res.status(400).json({ 

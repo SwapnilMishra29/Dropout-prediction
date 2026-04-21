@@ -35,7 +35,7 @@ export default function AddStudentPage() {
     
     try {
       setLoading(true);
-      await studentAPI.create({
+      const response = await studentAPI.create({
         student_id: formData.student_id,
         name: formData.name,
         email: formData.email,
@@ -44,15 +44,25 @@ export default function AddStudentPage() {
         enrollment_year: formData.enrollment_year,
         current_semester: formData.current_semester,
       });
+      
+      console.log('Create response:', response);
       showSuccess('Student created successfully');
-      router.push('/students');
+      
+      // Force a small delay before redirect to ensure data is saved
+      setTimeout(() => {
+        router.push('/students');
+        router.refresh(); // Force refresh the page
+      }, 500);
+      
     } catch (error: any) {
       console.error('Create student error:', error);
-      showError(error.response?.data?.error || 'Failed to create student');
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Failed to create student';
+      showError(errorMsg);
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
