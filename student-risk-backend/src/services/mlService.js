@@ -2,7 +2,7 @@ const axios = require('axios');
 
 class MLService {
   constructor() {
-    this.baseURL = process.env.ML_API_URL || 'http://localhost:7860';
+    this.baseURL = process.env.ML_API_URL || 'https://swapnil2910-ml-model.hf.space';
     this.timeout = 10000;
   }
 
