@@ -22,7 +22,7 @@ const nextConfig = {
   },
   // Ensure proper environment variable handling
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://dropout-prediction-kl17.onrender.com/api',
+    NEXT_PUBLIC_API_URL: 'https://dropout-prediction-kl17.onrender.com/api',
   },
 }
 
