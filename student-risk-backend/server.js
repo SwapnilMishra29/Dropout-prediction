@@ -42,7 +42,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'],
+  origin: ['https://dropout-ews-frontend.onrender.com', 'http://localhost:3001', 'http://localhost:5173', 'https://swapnil2910-ml-model.hf.space', 'http://127.0.0.1:3001'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
