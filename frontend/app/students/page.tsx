@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RiskBadge from '@/components/RiskBadge';
+import { DataTableSkeleton } from '@/components/skeletons';
 import { studentAPI, predictionAPI } from '@/lib/api-client';
 import { useNotification } from '@/lib/notification-context';
-import { Search, Plus, Eye, Trash2, Loader2, RefreshCw } from 'lucide-react';
+import { Search, Plus, Eye, Trash2, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
 export default function StudentsPage() {
@@ -31,8 +32,8 @@ export default function StudentsPage() {
       const studentsData = response.data?.data || response.data || [];
       console.log('Students data:', studentsData);
       
-      // Fetch predictions for each student
-      const studentsWithRisk = await Promise.all(
+      // Fetch predictions for each student in parallel batches
+      const predictions = await Promise.allSettled(
         studentsData.map(async (student: any) => {
           try {
             const predRes = await predictionAPI.getByStudent(student._id);
@@ -47,6 +48,10 @@ export default function StudentsPage() {
           }
         })
       );
+      
+      const studentsWithRisk = predictions
+        .filter((p): p is PromiseFulfilledResult<any> => p.status === 'fulfilled')
+        .map(p => p.value);
       
       setStudents(studentsWithRisk);
       setFilteredStudents(studentsWithRisk);
@@ -115,8 +120,24 @@ export default function StudentsPage() {
     return (
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
         <Sidebar />
-        <main className="flex-1 lg:ml-64 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <main className="flex-1 lg:ml-64">
+          <Header title="Students" />
+          <div className="p-4 md:p-6 lg:p-8">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
+                <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              </div>
+              <div className="flex gap-3">
+                <div className="h-10 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-10 w-32 bg-blue-200 dark:bg-blue-900/30 rounded animate-pulse"></div>
+              </div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6 h-10 animate-pulse"></div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <DataTableSkeleton rows={8} columns={6} />
+            </div>
+          </div>
         </main>
       </div>
     );

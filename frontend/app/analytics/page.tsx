@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import StatCard from '@/components/StatCard';
+import { StatCardSkeletonGrid, ChartSkeleton } from '@/components/skeletons';
 import { studentAPI, predictionAPI } from '@/lib/api-client';
-import { Users, AlertTriangle, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { Users, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
 import {
   PieChart,
   Pie,
@@ -41,25 +42,29 @@ export default function AnalyticsPage() {
       const studentsRes = await studentAPI.getAll();
       const students = studentsRes.data || [];
       
+      // Fetch all predictions in parallel
+      const predictions = await Promise.allSettled(
+        students.map(student =>
+          predictionAPI.getByStudent(student._id)
+            .then(res => res?.data)
+            .catch(() => null)
+        )
+      );
+
       let highRisk = 0, mediumRisk = 0, lowRisk = 0;
       let totalScore = 0;
       let withPredictions = 0;
       
-      for (const student of students) {
-        try {
-          const predRes = await predictionAPI.getByStudent(student._id);
-          const pred = predRes?.data;
-          if (pred?.risk_level) {
-            if (pred.risk_level === 'HIGH') highRisk++;
-            if (pred.risk_level === 'MEDIUM') mediumRisk++;
-            if (pred.risk_level === 'LOW') lowRisk++;
-            totalScore += pred.final_score || 0;
-            withPredictions++;
-          }
-        } catch (e) {
-          // No prediction
+      predictions.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value?.risk_level) {
+          const pred = result.value;
+          if (pred.risk_level === 'HIGH') highRisk++;
+          if (pred.risk_level === 'MEDIUM') mediumRisk++;
+          if (pred.risk_level === 'LOW') lowRisk++;
+          totalScore += pred.final_score || 0;
+          withPredictions++;
         }
-      }
+      });
       
       setStats({
         totalStudents: students.length,
@@ -92,8 +97,15 @@ export default function AnalyticsPage() {
     return (
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
         <Sidebar />
-        <main className="flex-1 lg:ml-64 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <main className="flex-1 lg:ml-64">
+          <Header title="Analytics" />
+          <div className="p-4 md:p-6 lg:p-8 space-y-6">
+            <StatCardSkeletonGrid />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ChartSkeleton />
+              <ChartSkeleton />
+            </div>
+          </div>
         </main>
       </div>
     );

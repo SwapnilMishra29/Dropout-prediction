@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RiskBadge from '@/components/RiskBadge';
+import { DataTableSkeleton } from '@/components/skeletons';
 import { alertAPI } from '@/lib/api-client';
 import { useNotification } from '@/lib/notification-context';
-import { AlertCircle, CheckCircle2, Clock, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, RefreshCw } from 'lucide-react';
 
 interface Alert {
   _id: string;
@@ -68,8 +69,44 @@ export default function AlertsPage() {
     return (
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
         <Sidebar />
-        <main className="flex-1 lg:ml-64 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <main className="flex-1 lg:ml-64">
+          <Header title="Alerts & Notifications" />
+          <div className="p-4 md:p-6 lg:p-8 space-y-6">
+            {/* Stats Cards Skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 animate-pulse">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                      <div className="h-8 w-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    </div>
+                    <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Filter Tabs Skeleton */}
+            <div className="flex gap-2 pb-4 border-b border-gray-200 dark:border-gray-700">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-10 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              ))}
+            </div>
+
+            {/* Alerts List Skeleton */}
+            <div className="space-y-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 animate-pulse border">
+                  <div className="mb-3">
+                    <div className="h-5 w-32 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                    <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                    <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </main>
       </div>
     );

@@ -509,11 +509,23 @@ export default function StudentDetailPage() {
                           <div>
                             <div className="flex justify-between text-sm mb-1">
                               <span>Performance Ratio</span>
-                              <span>{((prediction.features_used?.performance_ratio || 0) * 100).toFixed(0)}%</span>
+                              <span>
+  {Math.min(
+    (prediction.features_used?.performance_ratio || 0) * 100,
+    100
+  ).toFixed(0)}
+  %
+</span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div className="bg-yellow-500 h-2 rounded-full" style={{ width: `${(prediction.features_used?.performance_ratio || 0) * 100}%` }} />
-                            </div>
+                            <div
+  className="bg-yellow-500 h-2 rounded-full"
+  style={{
+    width: `${Math.min(
+      (prediction.features_used?.performance_ratio || 0) * 100,
+      100
+    )}%`,
+  }}
+/>
                           </div>
                         </div>
                       </div>

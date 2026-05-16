@@ -11,7 +11,9 @@ export default function BulkUploadPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadType, setUploadType] = useState<'students' | 'academic' | 'finance' | 'predict'>('students');
   const [result, setResult] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const { showSuccess, showError } = useNotification();
+  const ITEMS_PER_PAGE = 10;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -38,6 +40,7 @@ export default function BulkUploadPage() {
       }
       
       setResult(response);
+      setCurrentPage(1);
       showSuccess(`${uploadType} data uploaded successfully!`);
     } catch (error: any) {
       console.error('Upload error:', error);
@@ -166,7 +169,7 @@ export default function BulkUploadPage() {
     { id: 'students' as const, label: 'Students Data', description: 'Upload student information CSV', color: 'blue' },
     { id: 'academic' as const, label: 'Academic Records', description: 'Upload marks and attendance CSV', color: 'green' },
     { id: 'finance' as const, label: 'Finance Records', description: 'Upload fee payment CSV', color: 'yellow' },
-    { id: 'predict' as const, label: 'Batch Prediction', description: 'Upload student IDs for bulk prediction', color: 'purple' },
+    { id: 'predict' as const, label: 'Batch Prediction', description: 'Upload CSV for bulk dropout prediction', color: 'purple' },
   ];
 
   return (
@@ -182,7 +185,7 @@ export default function BulkUploadPage() {
             <div className="text-center">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bulk Data Upload</h1>
               <p className="text-gray-600 dark:text-gray-400 mt-2">
-                Upload CSV files to add multiple records at once
+                Upload CSV files to add multiple records or run batch predictions
               </p>
             </div>
 
@@ -244,46 +247,287 @@ export default function BulkUploadPage() {
               </div>
             </div>
 
-            {/* Results */}
+            {/* Results with Sorting */}
             {result && (
               <div className={`rounded-lg p-6 ${
                 result.error 
                   ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
                   : 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
               }`}>
-                <div className="flex items-center gap-3 mb-4">
-                  {result.error ? (
-                    <XCircle className="w-6 h-6 text-red-500" />
-                  ) : (
-                    <CheckCircle className="w-6 h-6 text-green-500" />
+                <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    {result.error ? (
+                      <XCircle className="w-6 h-6 text-red-500" />
+                    ) : (
+                      <CheckCircle className="w-6 h-6 text-green-500" />
+                    )}
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {result.error ? 'Upload Failed' : 'Upload Successful'}
+                    </h3>
+                  </div>
+                  
+                  {/* Sort Controls - Only show for predictions */}
+                  {!result.error && result.data?.predictions && Array.isArray(result.data.predictions) && result.data.predictions.length > 0 && (
+                    <div className="flex gap-2">
+                      <select
+                        onChange={(e) => {
+                          const sortBy = e.target.value;
+                          if (!sortBy || !result.data.predictions) return;
+                          
+                          const sortedPredictions = [...result.data.predictions];
+                          
+                          try {
+                            if (sortBy === 'risk_high') {
+                              const riskOrder = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+                              sortedPredictions.sort((a, b) => {
+                                const riskA = riskOrder[a.risk_level as keyof typeof riskOrder] || 0;
+                                const riskB = riskOrder[b.risk_level as keyof typeof riskOrder] || 0;
+                                return riskB - riskA;
+                              });
+                            } else if (sortBy === 'risk_low') {
+                              const riskOrder = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+                              sortedPredictions.sort((a, b) => {
+                                const riskA = riskOrder[a.risk_level as keyof typeof riskOrder] || 0;
+                                const riskB = riskOrder[b.risk_level as keyof typeof riskOrder] || 0;
+                                return riskA - riskB;
+                              });
+                            } else if (sortBy === 'score_high') {
+                              sortedPredictions.sort((a, b) => (b.final_score || 0) - (a.final_score || 0));
+                            } else if (sortBy === 'score_low') {
+                              sortedPredictions.sort((a, b) => (a.final_score || 0) - (b.final_score || 0));
+                            } else if (sortBy === 'student_az') {
+                              sortedPredictions.sort((a, b) => (a.student_id || '').localeCompare(b.student_id || ''));
+                            } else if (sortBy === 'student_za') {
+                              sortedPredictions.sort((a, b) => (b.student_id || '').localeCompare(a.student_id || ''));
+                            }
+                            
+                            setResult({
+                              ...result,
+                              data: {
+                                ...result.data,
+                                predictions: sortedPredictions
+                              }
+                            });
+                          } catch (error) {
+                            console.error('Sorting error:', error);
+                          }
+                        }}
+                        className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer"
+                      >
+                        <option value="">Sort by...</option>
+                        <option value="risk_high">⚠️ Risk Level (High to Low)</option>
+                        <option value="risk_low">✅ Risk Level (Low to High)</option>
+                        <option value="score_high">📊 Risk Score (High to Low)</option>
+                        <option value="score_low">📊 Risk Score (Low to High)</option>
+                        <option value="student_az">🔤 Student ID (A to Z)</option>
+                        <option value="student_za">🔤 Student ID (Z to A)</option>
+                      </select>
+                      
+                      {/* Quick sort buttons */}
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => {
+                            if (!result.data?.predictions) return;
+                            const sorted = [...result.data.predictions];
+                            const riskOrder = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+                            sorted.sort((a, b) => {
+                              const riskA = riskOrder[a.risk_level as keyof typeof riskOrder] || 0;
+                              const riskB = riskOrder[b.risk_level as keyof typeof riskOrder] || 0;
+                              return riskB - riskA;
+                            });
+                            setResult({
+                              ...result,
+                              data: { ...result.data, predictions: sorted }
+                            });
+                          }}
+                          className="px-2 py-1.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                          title="Show High Risk First"
+                        >
+                          🔴 High First
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (!result.data?.predictions) return;
+                            const sorted = [...result.data.predictions];
+                            sorted.sort((a, b) => (b.final_score || 0) - (a.final_score || 0));
+                            setResult({
+                              ...result,
+                              data: { ...result.data, predictions: sorted }
+                            });
+                          }}
+                          className="px-2 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                          title="Sort by Score"
+                        >
+                          📊 Score
+                        </button>
+                      </div>
+                    </div>
                   )}
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {result.error ? 'Upload Failed' : 'Upload Successful'}
-                  </h3>
                 </div>
                 
                 {result.error ? (
                   <p className="text-red-600 dark:text-red-400">{result.error}</p>
                 ) : (
                   <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                    <p>✅ Total records: {result.data?.total || result.total || result.successful?.length || 0}</p>
-                    {result.data?.successful !== undefined && <p>✅ Successful: {result.data.successful}</p>}
-                    {result.data?.failed !== undefined && <p>❌ Failed: {result.data.failed}</p>}
-                    {result.data?.duplicates !== undefined && <p>⚠️ Duplicates: {result.data.duplicates}</p>}
-                    
-                    {result.data?.predictions && (
-                      <div className="mt-4">
-                        <p className="font-semibold mb-2">Predictions:</p>
-                        <div className="space-y-1 max-h-60 overflow-y-auto">
-                          {result.data.predictions.slice(0, 10).map((pred: any, idx: number) => (
-                            <div key={idx} className="text-xs border-b border-gray-200 dark:border-gray-700 py-1">
-                              {pred.student_id}: <span className={`font-semibold ${
-                                pred.risk_level === 'HIGH' ? 'text-red-600' :
-                                pred.risk_level === 'MEDIUM' ? 'text-yellow-600' : 'text-green-600'
-                              }`}>{pred.risk_level}</span> ({pred.final_score})
-                            </div>
-                          ))}
+                    {/* Summary Stats Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-2 text-center shadow-sm">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Total Records</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white">
+                          {result.data?.total || result.total || result.successful?.length || 0}
+                        </p>
+                      </div>
+                      {result.data?.successful !== undefined && (
+                        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center shadow-sm">
+                          <p className="text-xs text-green-600 dark:text-green-400">✅ Successful</p>
+                          <p className="text-lg font-bold text-green-700 dark:text-green-300">{result.data.successful}</p>
                         </div>
+                      )}
+                      {result.data?.failed !== undefined && (
+                        <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2 text-center shadow-sm">
+                          <p className="text-xs text-red-600 dark:text-red-400">❌ Failed</p>
+                          <p className="text-lg font-bold text-red-700 dark:text-red-300">{result.data.failed}</p>
+                        </div>
+                      )}
+                      {result.data?.duplicates !== undefined && (
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2 text-center shadow-sm">
+                          <p className="text-xs text-yellow-600 dark:text-yellow-400">⚠️ Duplicates</p>
+                          <p className="text-lg font-bold text-yellow-700 dark:text-yellow-300">{result.data.duplicates}</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Predictions Display */}
+                    {result.data?.predictions && Array.isArray(result.data.predictions) && result.data.predictions.length > 0 && (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="font-semibold text-gray-900 dark:text-white">
+                            📋 Predictions ({result.data.predictions.length} students):
+                          </p>
+                          <div className="flex gap-2">
+                            <span className="inline-flex items-center gap-1 text-xs">
+                              <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                              <span className="text-gray-600 dark:text-gray-400">High Risk</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-xs">
+                              <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                              <span className="text-gray-600 dark:text-gray-400">Medium Risk</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-xs">
+                              <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                              <span className="text-gray-600 dark:text-gray-400">Low Risk</span>
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Risk Summary Bar */}
+                        {result.data.predictions.length > 0 && (
+                          <div className="flex h-2 rounded-full overflow-hidden mb-4">
+                            <div 
+                              className="bg-red-500 transition-all duration-300"
+                              style={{ width: `${(result.data.predictions.filter((p: any) => p.risk_level === 'HIGH').length / result.data.predictions.length) * 100}%` }}
+                            />
+                            <div 
+                              className="bg-yellow-500 transition-all duration-300"
+                              style={{ width: `${(result.data.predictions.filter((p: any) => p.risk_level === 'MEDIUM').length / result.data.predictions.length) * 100}%` }}
+                            />
+                            <div 
+                              className="bg-green-500 transition-all duration-300"
+                              style={{ width: `${(result.data.predictions.filter((p: any) => p.risk_level === 'LOW').length / result.data.predictions.length) * 100}%` }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Predictions List with Pagination */}
+                        {(() => {
+                          const totalPages = Math.ceil(result.data.predictions.length / ITEMS_PER_PAGE);
+                          const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+                          const endIdx = startIdx + ITEMS_PER_PAGE;
+                          const paginatedPredictions = result.data.predictions.slice(startIdx, endIdx);
+                          
+                          return (
+                            <>
+                              <div className="space-y-1 max-h-60 overflow-y-auto">
+                                {paginatedPredictions.map((pred: any, idx: number) => (
+                                  <div key={idx} className="text-xs border-b border-gray-200 dark:border-gray-700 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors px-2 rounded">
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-mono font-medium text-gray-900 dark:text-white">
+                                        {pred.student_id}
+                                      </span>
+                                      <span className={`font-semibold px-2 py-0.5 rounded-full ${
+                                        pred.risk_level === 'HIGH' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                                        pred.risk_level === 'MEDIUM' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' : 
+                                        'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                      }`}>
+                                        {pred.risk_level}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between mt-1">
+                                      <span className="text-gray-500 dark:text-gray-400">Risk Score:</span>
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                                          <div 
+                                            className={`h-1.5 rounded-full transition-all ${
+                                              pred.final_score >= 70 ? 'bg-green-500' :
+                                              pred.final_score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                                            }`}
+                                            style={{ width: `${pred.final_score}%` }}
+                                          />
+                                        </div>
+                                        <span className={`font-semibold ${
+                                          pred.final_score >= 70 ? 'text-green-600 dark:text-green-400' :
+                                          pred.final_score >= 40 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'
+                                        }`}>
+                                          {pred.final_score}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              
+                              {/* Pagination Controls */}
+                              {totalPages > 1 && (
+                                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                                    Page {currentPage} of {totalPages} • Showing {paginatedPredictions.length} of {result.data.predictions.length} results
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                      disabled={currentPage === 1}
+                                      className="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                                    >
+                                      ← Previous
+                                    </button>
+                                    <div className="flex gap-1">
+                                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                        <button
+                                          key={page}
+                                          onClick={() => setCurrentPage(page)}
+                                          className={`w-7 h-7 text-xs rounded-lg transition-colors ${
+                                            currentPage === page
+                                              ? 'bg-indigo-500 text-white'
+                                              : 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                          }`}
+                                        >
+                                          {page}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    <button
+                                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                      disabled={currentPage === totalPages}
+                                      className="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                                    >
+                                      Next →
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -318,6 +562,9 @@ export default function BulkUploadPage() {
                   <code className="text-xs bg-gray-100 dark:bg-gray-700 p-1 rounded block overflow-x-auto">
                     student_id,attendance_percentage,test1_marks,test2_marks,fees_paid
                   </code>
+                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                    📌 Note: fees_paid should be 'true' or 'false'
+                  </p>
                 </div>
               </div>
             </div>
