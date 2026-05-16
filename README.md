@@ -1,114 +1,240 @@
 # Dropout Early Warning System
 
-An intelligent predictive system to identify at-risk students and enable proactive intervention.
+An AI-powered student risk analytics platform that helps institutions identify at-risk students early and take proactive intervention measures before dropout occurs.
 
-## Features
+## 🌐 Live Demo
 
-✅ **Data Upload**: Import student attendance, marks, and fees data via CSV  
-✅ **Risk Prediction**: ML-powered + rule-based risk scoring  
-✅ **Dashboard**: Real-time visualization of student risk levels  
-✅ **Alerts**: Identify and monitor high-risk students  
-✅ **Data Management**: CRUD operations for student records  
+🚀 Frontend Deployment: https://dropout-ews-frontend.onrender.com/
 
-## Tech Stack
+---
+
+## ✨ Key Features
+
+### 📊 Smart Student Risk Prediction
+- Hybrid prediction system using:
+  - Rule-based risk analysis
+  - Machine Learning risk scoring
+- Predicts student dropout probability based on:
+  - Attendance
+  - Academic performance
+  - Financial status
+  - Behavioral indicators
+
+### 📁 CSV Data Upload System
+- Upload bulk student datasets through CSV
+- Separate uploads for:
+  - Student details
+  - Academic records
+  - Financial data
+- Automatic validation and preprocessing
+
+### 📈 Interactive Analytics Dashboard
+- Real-time student risk visualization
+- Risk distribution charts
+- High-risk student monitoring
+- Institution-wide analytics overview
+
+### 🚨 Early Warning Alerts
+- Detects high-risk students instantly
+- Categorizes students into:
+  - Low Risk
+  - Medium Risk
+  - High Risk
+- Enables timely intervention tracking
+
+### 🛠️ Full Student Management
+- CRUD operations for student records
+- Update academic and finance information
+- View detailed student profiles
+- Centralized student database
+
+### 🔐 Authentication & Validation
+- Secure API handling
+- Input validation
+- Protected backend architecture
+
+---
+
+## 🧠 Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|------------|
 | Frontend | React 18 + Vite + Tailwind CSS |
-| Backend | Node.js + Express + MongoDB |
-| ML Service | Python + Flask + scikit-learn |
+| Backend | Node.js + Express.js |
+| Database | MongoDB |
+| Machine Learning | Python + Flask + scikit-learn |
+| Charts & Visualization | Recharts |
+| File Uploads | Multer |
+| API Communication | Axios |
 
-## Quick Start
+---
 
-### Prerequisites
+## 🏗️ System Architecture
+
+```text
+Frontend (React)
+       │
+       ▼
+Backend API (Node.js + Express)
+       │
+ ┌─────┴─────┐
+ ▼           ▼
+MongoDB    ML Service (Flask)
+                │
+                ▼
+        Risk Prediction Engine
+```
+
+---
+
+# ⚙️ Installation & Setup
+
+## Prerequisites
+
 - Node.js >= 14
 - Python >= 3.8
-- MongoDB running locally or remote connection
+- MongoDB (Local or Atlas)
 
-### Installation
+---
 
-1. **Clone and Setup Directories**
+## 1️⃣ Clone Repository
+
 ```bash
 git clone <repo-url>
 cd dropout-prediction
 ```
 
-2. **Backend Setup**
+---
+
+## 2️⃣ Backend Setup
+
 ```bash
 cd backend
 npm install
-cp .env.example .env  # Configure with your MongoDB URI
-npm run dev
+cp .env.example .env
 ```
 
-3. **ML Service Setup**
-```bash
-cd ../ml-service
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python main.py
-```
+Configure `.env`
 
-4. **Frontend Setup**
-```bash
-cd ../frontend
-npm install
-npm run dev
-```
-
-## Project Structure
-
-```
-dropout-prediction/
-├── backend/           # Express API
-├── ml-service/        # Python ML + Rules Engine
-├── frontend/          # React Dashboard
-├── sample-data/       # Test CSVs
-├── docs/              # Documentation
-└── docker-compose.yml # Optional: Docker setup
-```
-
-## API Endpoints
-
-### Students
-- `GET /api/students` - Get all students
-- `GET /api/students/:id` - Get student by ID
-- `PUT /api/students/:id` - Update student
-
-### Upload
-- `POST /api/upload` - Upload CSV file
-- `GET /api/upload` - List uploaded files
-
-### Alerts
-- `GET /api/alerts/high-risk` - Get high-risk students
-- `GET /api/alerts/summary` - Get alerts summary
-
-## Configuration
-
-### Environment Variables
-
-**Backend** (backend/.env)
 ```env
 MONGO_URI=mongodb://localhost:27017/dropout-prediction
 ML_SERVICE_URL=http://localhost:5000
 PORT=3000
 ```
 
-**ML Service** (ml-service/.env)
-```env
-ML_SERVICE_PORT=5000
-DEBUG=True
+Run backend server:
+
+```bash
+npm run dev
 ```
 
-**Frontend** (frontend/.env)
+---
+
+## 3️⃣ ML Service Setup
+
+```bash
+cd ../ml-service
+
+python -m venv venv
+```
+
+### Activate Virtual Environment
+
+#### Windows
+```bash
+venv\Scripts\activate
+```
+
+#### Linux / macOS
+```bash
+source venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Run Flask ML service:
+
+```bash
+python main.py
+```
+
+---
+
+## 4️⃣ Frontend Setup
+
+```bash
+cd ../frontend
+npm install
+```
+
+Create `.env`
+
 ```env
 VITE_API_URL=http://localhost:3000/api
 ```
 
-## Database Schema
+Run frontend:
 
-### Student Collection
+```bash
+npm run dev
+```
+
+---
+
+# 📂 Project Structure
+
+```text
+dropout-prediction/
+│
+├── backend/               # Express REST API
+├── frontend/              # React Dashboard
+├── ml-service/            # Flask ML Service
+├── sample-data/           # CSV test datasets
+├── docs/                  # Documentation
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+# 📡 API Endpoints
+
+## 👨‍🎓 Students
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/students` | Fetch all students |
+| GET | `/api/students/:id` | Fetch student by ID |
+| PUT | `/api/students/:id` | Update student |
+
+---
+
+## 📤 Upload APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/upload` | Upload CSV data |
+| GET | `/api/upload` | Fetch uploaded files |
+
+---
+
+## 🚨 Alerts APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/alerts/high-risk` | Get high-risk students |
+| GET | `/api/alerts/summary` | Alerts analytics summary |
+
+---
+
+# 🗄️ Database Schema
+
+## Student Model
+
 ```javascript
 {
   studentId: String,
@@ -124,36 +250,71 @@ VITE_API_URL=http://localhost:3000/api
 }
 ```
 
-## Risk Assessment Model
+---
 
-The system uses a hybrid approach:
+# 🤖 Risk Prediction Engine
 
-### Rule-Based Engine
-- Attendance threshold: 75%
-- Marks threshold: 60
-- Fees payment status
+The system uses a **hybrid prediction model**.
 
-### Machine Learning
-- Trained RandomForest classifier (optional)
-- Feature engineering for dropout prediction
+## Rule-Based Logic
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a pull request
-
-## License
-
-This project is licensed under the MIT License - see LICENSE file for details.
-
-## Support
-
-For issues or questions, please open an issue on GitHub.
+Risk increases when:
+- Attendance < 75%
+- Marks < 60%
+- Pending fee payments
 
 ---
 
-**Last Updated**: March 2024  
-**Version**: 1.0.0
+## Machine Learning Model
+
+### Model Used
+- RandomForest Classifier
+
+### ML Workflow
+- Data preprocessing
+- Feature engineering
+- Risk classification
+- Prediction scoring
+
+---
+
+# 📊 Future Improvements
+
+- Role-based authentication
+- Email/SMS alert system
+- Advanced analytics dashboard
+- Student performance forecasting
+- Deployment using Docker & Kubernetes
+- Cloud-based ML model hosting
+- Multi-institution support
+
+---
+
+# 🤝 Contributing
+
+1. Fork the repository
+2. Create a new branch
+3. Commit your changes
+4. Push the branch
+5. Open a Pull Request
+
+---
+
+# 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+# 👨‍💻 Developer
+
+Built by **Swapnil Mishra**  
+B.Tech CSE (Data Science)
+
+---
+
+# ⭐ Project Status
+
+✅ Active Development  
+🚀 Production Deployment Available  
+📌 Latest Updated Version: 2026
